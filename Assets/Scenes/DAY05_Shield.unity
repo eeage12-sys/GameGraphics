@@ -132,7 +132,7 @@ GameObject:
   - component: {fileID: 328558829}
   - component: {fileID: 328558828}
   m_Layer: 0
-  m_Name: DAY05_ShieldDemo
+  m_Name: Sphere (3)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -184,7 +184,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: c1d5d972092de02419bb463a6439c016, type: 2}
+  - {fileID: 2100000, guid: 55cc12016b5c74046a47c6f685b4c708, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
