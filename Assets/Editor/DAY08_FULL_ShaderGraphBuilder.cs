@@ -3,6 +3,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using System;
 using System.IO;
 using System.Linq;
@@ -22,12 +23,12 @@ public static class DAY08_FULL_ShaderGraphBuilder
     const string PREFABS = ROOT + "/Prefabs";
     const string SCENES = ROOT + "/Scenes";
     const string SETTINGS = ROOT + "/Settings";
+    const string SCRIPTS = ROOT + "/Scripts";
     const string SCENE_PATH = SCENES + "/DAY08_NonPhotoreal_COMPLETE.unity";
 
     static readonly List<string> report = new List<string>();
 
-    [MenuItem("Tools/DAY08 FULL/00 - Check Unity 6.6 Templates")]
-    public static void CheckTemplates()
+        public static void CheckTemplates()
     {
         string a=FindShaderGraph("SG_ColorPulse");
         string b=FindShaderGraph("SG_Shield");
@@ -41,11 +42,45 @@ public static class DAY08_FULL_ShaderGraphBuilder
             "템플릿 확인 완료\\n\\n"+a+"\\n"+b+"\\n\\n이제 Build ALL을 실행하면 됩니다.", "확인");
     }
 
-    [MenuItem("Tools/DAY08 FULL/Build ALL Shader Graph Coursework")]
-    public static void BuildAll()
+        public static void RepairBlack()
     {
         report.Clear();
-        report.Add("Builder v7 / Unity 6.6 official TrySetActiveSubTarget");
+        EnsureFolders();
+        string donor=FindShaderGraph("SG_ColorPulse");
+        if(string.IsNullOrEmpty(donor)) donor=FindAnyShaderGraph();
+        if(string.IsNullOrEmpty(donor))
+        {
+            EditorUtility.DisplayDialog("DAY08 REPAIR","SG_ColorPulse.shadergraph를 찾지 못했습니다.","확인");
+            return;
+        }
+
+        try
+        {
+            BuildToonBand(donor, GRAPHS + "/SG_ToonBand.shadergraph");
+            BuildToonRim(donor, GRAPHS + "/SG_ToonRim.shadergraph");
+            BuildOutlineShell(donor, GRAPHS + "/SG_OutlineShell.shadergraph");
+            BuildScreenOutline(donor, GRAPHS + "/SG_ScreenOutline.shadergraph");
+            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+            CreateMaterials();
+            CreatePrefabs();
+            CreateVolumeProfile();
+            CreateScene();
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            EditorUtility.DisplayDialog("DAY08 REPAIR 완료",
+                "검게 나오던 ToonRim 계열을 전체 Toon Band + Rim 노드 체인으로 다시 만들었습니다.\\nDAY08_NonPhotoreal_COMPLETE 씬을 다시 확인하세요.","확인");
+        }
+        catch(Exception e)
+        {
+            Debug.LogException(e);
+            EditorUtility.DisplayDialog("DAY08 REPAIR 오류",e.Message,"확인");
+        }
+    }
+
+        public static void BuildAll()
+    {
+        report.Clear();
+        report.Add("Builder v8 / ToonRim full-chain rebuild + explicit material defaults");
         EnsureFolders();
 
         string donor = FindShaderGraph("SG_ColorPulse");
@@ -92,6 +127,65 @@ public static class DAY08_FULL_ShaderGraphBuilder
             "Assets/DAY08/Scenes/DAY08_NonPhotoreal_COMPLETE 씬에서 결과를 비교할 수 있습니다.\n\n" +
             "Renderer Feature는 프로젝트 Renderer 구성에 따라 자동 추가가 제한될 수 있으니 Console REPORT도 확인하세요.",
             "확인");
+    }
+
+
+    [MenuItem("Tools/DAY08 FULL/FINAL - Rebuild Complete DAY08")]
+    public static void FinalRebuild()
+    {
+        report.Clear();
+        report.Add("Builder v9 FINAL / full DAY08 process rebuild");
+        EnsureFolders();
+
+        string donor = FindShaderGraph("SG_ColorPulse");
+        if (string.IsNullOrEmpty(donor))
+            donor = FindAnyShaderGraph();
+
+        if (string.IsNullOrEmpty(donor))
+        {
+            EditorUtility.DisplayDialog("DAY08 FINAL",
+                "SG_ColorPulse.shadergraph를 찾지 못했습니다.\nDAY04의 실제 Shader Graph가 프로젝트에 있어야 합니다.", "확인");
+            return;
+        }
+
+        try
+        {
+            BuildToonBand(donor, GRAPHS + "/SG_ToonBand.shadergraph");
+            BuildToonRim(donor, GRAPHS + "/SG_ToonRim.shadergraph");
+            BuildOutlineShell(donor, GRAPHS + "/SG_OutlineShell.shadergraph");
+            BuildScreenOutline(donor, GRAPHS + "/SG_ScreenOutline.shadergraph");
+
+            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+
+            CreateMaterials();
+
+            int outlineLayer = EnsureOutlineTargetLayer();
+            CreatePrefabsFinal(outlineLayer);
+            CreateVolumeProfile();
+
+            ScriptableRendererData rendererData = InstallRendererFeaturesFinal(outlineLayer);
+            CreateAllLessonScenes(rendererData, outlineLayer);
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+
+            // Finish on the overview scene with global renderer features OFF.
+            EditorSceneManager.OpenScene(SCENE_PATH, OpenSceneMode.Single);
+
+            Debug.Log("DAY08 FINAL BUILD REPORT\n" + string.Join("\n", report));
+            EditorUtility.DisplayDialog("DAY08 FINAL 완료",
+                "DAY08 전체 과정을 한 번에 다시 만들었습니다.\n\n" +
+                "Graphs 4개 / Materials / Prefabs / Renderer Features / 단계별 Scenes / Volume을 모두 생성했습니다.\n\n" +
+                "먼저 DAY08_NonPhotoreal_COMPLETE를 보고,\n" +
+                "Screen Outline은 DAY08_05_ScreenOutline 또는 DAY08_08_HiFi 씬에서 확인하세요.",
+                "확인");
+        }
+        catch (Exception e)
+        {
+            Debug.LogException(e);
+            EditorUtility.DisplayDialog("DAY08 FINAL 오류",
+                e.Message + "\n\nConsole의 첫 빨간 오류를 확인하세요.", "확인");
+        }
     }
 
     // ---------- Graph bootstrap / serialization ----------
@@ -141,23 +235,60 @@ public static class DAY08_FULL_ShaderGraphBuilder
 
     static void BuildToonRim(string donor, string dst)
     {
-        // ToonBand를 실제 그래프로 만든 후 복제/확장한다는 수업 과정도 파일 구조상 보존
-        string tempBand = GRAPHS + "/SG_ToonBand.shadergraph";
-        if (!File.Exists(tempBand)) BuildToonBand(donor, tempBand);
-        var g = LoadGraphClone(tempBand, dst);
+        // v8: 기존 SG_ToonBand의 BaseColor 연결을 역추적해서 잘라 붙이는 방식을 폐기.
+        // DAY08 문서의 Toon Band 전체 노드 + Rim 노드를 한 그래프 안에 처음부터 명시적으로 연결한다.
+        // 따라서 Add.A가 비어서 몸체가 검게 되는 문제가 발생하지 않는다.
+        var g = LoadGraphClone(donor, dst);
+        SwitchUniversalSubTarget(g, "UniversalUnlitSubTarget");
+        ClearGraphUserContent(g);
+        if(FindBlock(g,"BaseColor")==null)
+            throw new Exception("ToonRim Graph용 Base Color Block을 찾지 못했습니다.");
+
+        var lit = AddColorProperty(g, "LitColor", "_LitColor", new Color(1f, .78f, .2f, 1f));
+        var shadow = AddColorProperty(g, "ShadowColor", "_ShadowColor", new Color(.24f, .08f, .45f, 1f));
+        var lightDir = AddVector3Property(g, "LightDirectionWS", "_LightDirectionWS", new Vector3(.3f,.8f,.4f));
+        var threshold = AddFloatProperty(g, "BandThreshold", "_BandThreshold", .5f);
 
         var rimColor = AddColorProperty(g, "RimColor", "_RimColor", new Color(0f,1f,.95f,1f));
         var rimPower = AddFloatProperty(g, "RimPower", "_RimPower", 3f);
         var rimIntensity = AddFloatProperty(g, "RimIntensity", "_RimIntensity", 2f);
 
-        var fresnel = AddNode(g, "FresnelNode", 130, 430);
-        var mul1 = AddNode(g, "MultiplyNode", 390, 400);
-        var mul2 = AddNode(g, "MultiplyNode", 650, 400);
-        var add = AddNode(g, "AddNode", 920, 160);
+        // Toon Band
+        var nrm = AddNode(g, "NormalVectorNode", -1100, -120);
+        SetMember(nrm, new[]{"space","m_Space"}, EnumValue(GetMemberType(nrm,new[]{"space","m_Space"}), "World", 2));
 
-        var pColor = AddPropertyNode(g, rimColor, -120, 520);
-        var pPower = AddPropertyNode(g, rimPower, -120, 430);
-        var pIntensity = AddPropertyNode(g, rimIntensity, 410, 610);
+        var normalize = AddNode(g, "NormalizeNode", -1100, 170);
+        var dot = AddNode(g, "DotProductNode", -820, 0);
+        var remap = AddNode(g, "RemapNode", -560, 0);
+        var step = AddNode(g, "StepNode", -300, 0);
+        var lerp = AddNode(g, "LerpNode", -40, 0);
+
+        var pLit = AddPropertyNode(g, lit, -300, 250);
+        var pShadow = AddPropertyNode(g, shadow, -300, 340);
+        var pDir = AddPropertyNode(g, lightDir, -1350, 180);
+        var pThreshold = AddPropertyNode(g, threshold, -560, 250);
+
+        Connect(g, pDir, "Out", normalize, "In");
+        Connect(g, nrm, "Out", dot, "A");
+        Connect(g, normalize, "Out", dot, "B");
+        Connect(g, dot, "Out", remap, "In");
+        SetSlotDefault(remap, "In Min Max", new Vector2(-1,1));
+        SetSlotDefault(remap, "Out Min Max", new Vector2(0,1));
+        Connect(g, pThreshold, "Out", step, "Edge");
+        Connect(g, remap, "Out", step, "In");
+        Connect(g, pShadow, "Out", lerp, "A");
+        Connect(g, pLit, "Out", lerp, "B");
+        Connect(g, step, "Out", lerp, "T");
+
+        // Rim
+        var fresnel = AddNode(g, "FresnelNode", 0, 430);
+        var mul1 = AddNode(g, "MultiplyNode", 270, 420);
+        var mul2 = AddNode(g, "MultiplyNode", 530, 420);
+        var add = AddNode(g, "AddNode", 800, 130);
+
+        var pColor = AddPropertyNode(g, rimColor, -260, 540);
+        var pPower = AddPropertyNode(g, rimPower, -260, 440);
+        var pIntensity = AddPropertyNode(g, rimIntensity, 280, 620);
 
         Connect(g, pPower, "Out", fresnel, "Power");
         Connect(g, pColor, "Out", mul1, "A");
@@ -165,16 +296,13 @@ public static class DAY08_FULL_ShaderGraphBuilder
         Connect(g, mul1, "Out", mul2, "A");
         Connect(g, pIntensity, "Out", mul2, "B");
 
-        // 기존 ToonBand -> BaseColor 연결의 출력 노드를 찾아 Add A로 재연결
-        var baseInput = FindBlock(g, "BaseColor");
-        var prior = FindConnectedOutputNode(g, baseInput);
-        DisconnectInput(g, baseInput);
-        if (prior != null) Connect(g, prior, "Out", add, "A");
+        // 핵심: Toon Band 최종색을 Add.A에 직접 연결하고 Rim을 Add.B에 연결
+        Connect(g, lerp, "Out", add, "A");
         Connect(g, mul2, "Out", add, "B");
         ConnectToBlock(g, add, "Out", "BaseColor");
 
         SaveGraph(g, dst);
-        report.Add("OK SG_ToonRim");
+        report.Add("OK SG_ToonRim (full ToonBand + Rim chain)");
     }
 
     static void BuildOutlineShell(string donor, string dst)
@@ -207,7 +335,13 @@ public static class DAY08_FULL_ShaderGraphBuilder
 
         SetUniversalRenderFace(g, "Back");
         SaveGraph(g, dst);
-        report.Add("OK SG_OutlineShell");
+
+        // Unity 6.6 Shader Graph serialization에서도 확실히 Back face가 남도록 직접 검증/보정.
+        PatchUniversalTargetInt(dst, "m_SurfaceType", 0); // Opaque
+        PatchUniversalTargetInt(dst, "m_RenderFace", 1); // Back
+        AssetDatabase.ImportAsset(dst, ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.ForceUpdate);
+
+        report.Add("OK SG_OutlineShell (Opaque + Back forced)");
     }
 
     static void BuildScreenOutline(string donor, string dst)
@@ -935,10 +1069,30 @@ public static class DAY08_FULL_ShaderGraphBuilder
     // ---------- Materials ----------
     static void CreateMaterials()
     {
-        MakeMat("Mat_ToonBand", GRAPHS+"/SG_ToonBand.shadergraph");
-        MakeMat("Mat_ToonRim", GRAPHS+"/SG_ToonRim.shadergraph");
-        MakeMat("Mat_OutlineShell", GRAPHS+"/SG_OutlineShell.shadergraph");
-        MakeMat("Mat_ScreenOutline", GRAPHS+"/SG_ScreenOutline.shadergraph");
+        var toonBand=MakeMat("Mat_ToonBand", GRAPHS+"/SG_ToonBand.shadergraph");
+        SetColor(toonBand,"_LitColor",new Color(1f,.78f,.2f,1f));
+        SetColor(toonBand,"_ShadowColor",new Color(.24f,.08f,.45f,1f));
+        SetVector(toonBand,"_LightDirectionWS",new Vector4(.3f,.8f,.4f,0f));
+        SetFloat(toonBand,"_BandThreshold",.5f);
+
+        var toonRim=MakeMat("Mat_ToonRim", GRAPHS+"/SG_ToonRim.shadergraph");
+        SetColor(toonRim,"_LitColor",new Color(1f,.78f,.2f,1f));
+        SetColor(toonRim,"_ShadowColor",new Color(.24f,.08f,.45f,1f));
+        SetVector(toonRim,"_LightDirectionWS",new Vector4(.3f,.8f,.4f,0f));
+        SetFloat(toonRim,"_BandThreshold",.5f);
+        SetColor(toonRim,"_RimColor",new Color(0f,1f,.95f,1f));
+        SetFloat(toonRim,"_RimPower",3f);
+        SetFloat(toonRim,"_RimIntensity",2f);
+
+        var outline=MakeMat("Mat_OutlineShell", GRAPHS+"/SG_OutlineShell.shadergraph");
+        SetColor(outline,"_OutlineColor",Hex("#11152A"));
+        SetFloat(outline,"_OutlineWidth",.03f);
+
+        var screenOutline=MakeMat("Mat_ScreenOutline", GRAPHS+"/SG_ScreenOutline.shadergraph");
+        SetColor(screenOutline,"_OutlineColor",Hex("#14213D"));
+        SetFloat(screenOutline,"_OutlineWidthPixels",1f);
+        SetFloat(screenOutline,"_NormalThreshold",.25f);
+        SetFloat(screenOutline,"_DepthThreshold",.5f);
 
         var tf2=CloneMat("Mat_ToonRim","Mat_StyleCharacter_TF2");
         SetColor(tf2,"_LitColor",Hex("#FFD58A")); SetColor(tf2,"_ShadowColor",Hex("#456FAD"));
@@ -1124,6 +1278,391 @@ public static class DAY08_FULL_ShaderGraphBuilder
         }
     }
 
+
+    // ---------- v9 FINAL: outline/screen renderer features + lesson scenes ----------
+
+    static void PatchUniversalTargetInt(string graphPath, string fieldName, int value)
+    {
+        string text = File.ReadAllText(graphPath, Encoding.UTF8);
+        string targetMarker = "\"m_Type\": \"UnityEditor.Rendering.Universal.ShaderGraph.UniversalTarget\"";
+        int targetIndex = text.IndexOf(targetMarker, StringComparison.Ordinal);
+        if (targetIndex < 0)
+            throw new Exception("Shader Graph UniversalTarget을 찾지 못했습니다: " + graphPath);
+
+        int fieldIndex = text.IndexOf("\"" + fieldName + "\"", targetIndex, StringComparison.Ordinal);
+        if (fieldIndex < 0)
+            throw new Exception("Shader Graph Target 필드를 찾지 못했습니다: " + fieldName);
+
+        // Do not accidentally patch a later JSON object.
+        int nextObject = text.IndexOf("\n}\n\n{", targetIndex, StringComparison.Ordinal);
+        if (nextObject >= 0 && fieldIndex > nextObject)
+            throw new Exception("UniversalTarget 내부에서 " + fieldName + " 필드를 찾지 못했습니다.");
+
+        int colon = text.IndexOf(':', fieldIndex);
+        int end = text.IndexOfAny(new[]{',','\n','\r'}, colon + 1);
+        if (colon < 0 || end < 0)
+            throw new Exception("Shader Graph Target 필드 보정 실패: " + fieldName);
+
+        text = text.Substring(0, colon + 1) + " " + value.ToString() + text.Substring(end);
+        File.WriteAllText(graphPath, text, Encoding.UTF8);
+    }
+
+    static int EnsureOutlineTargetLayer()
+    {
+        int existing = LayerMask.NameToLayer("OutlineTarget");
+        if (existing >= 0) return existing;
+
+        UnityEngine.Object[] tagAssets = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset");
+        if (tagAssets == null || tagAssets.Length == 0)
+            throw new Exception("ProjectSettings/TagManager.asset을 열지 못했습니다. OutlineTarget Layer를 만들 수 없습니다.");
+
+        SerializedObject tagManager = new SerializedObject(tagAssets[0]);
+        SerializedProperty layers = tagManager.FindProperty("layers");
+        if (layers == null)
+            throw new Exception("TagManager의 layers 배열을 찾지 못했습니다.");
+
+        for (int i = 8; i < 32 && i < layers.arraySize; i++)
+        {
+            SerializedProperty p = layers.GetArrayElementAtIndex(i);
+            if (string.IsNullOrEmpty(p.stringValue))
+            {
+                p.stringValue = "OutlineTarget";
+                tagManager.ApplyModifiedPropertiesWithoutUndo();
+                AssetDatabase.SaveAssets();
+                report.Add("OK Layer OutlineTarget = " + i);
+                return i;
+            }
+        }
+
+        throw new Exception("빈 User Layer가 없습니다. OutlineTarget Layer를 추가할 자리가 필요합니다.");
+    }
+
+    static void CreatePrefabsFinal(int outlineLayer)
+    {
+        // Core lesson prefabs
+        SaveSinglePrefab("PF_ToonBand", "Mat_ToonBand");
+        SaveSinglePrefab("PF_ToonRim", "Mat_ToonRim");
+        SaveOutlinePrefab("PF_OutlineDemo", "Mat_ToonRim", "Mat_OutlineShell");
+
+        // Advanced Render Objects lesson: ONE renderer only.
+        var roRoot = new GameObject("PF_OutlineRendererFeature");
+        var roChar = AddPrimitive(roRoot.transform, PrimitiveType.Capsule, "ToonCharacter", Vector3.zero, "Mat_ToonRim");
+        roChar.layer = outlineLayer;
+        PrefabUtility.SaveAsPrefabAsset(roRoot, PREFABS + "/PF_OutlineRendererFeature.prefab");
+        UnityEngine.Object.DestroyImmediate(roRoot);
+
+        // Full-screen outline process demo (ordinary scene materials; screen pass does the outline).
+        var screenRoot = new GameObject("PF_ScreenOutlineDemo");
+        AddPrimitive(screenRoot.transform, PrimitiveType.Capsule, "ToonCharacter", Vector3.zero, "Mat_ToonRim");
+        var screenCube = AddPrimitive(screenRoot.transform, PrimitiveType.Cube, "ComparisonCube", new Vector3(2.0f, 0f, 0.2f), null);
+        screenCube.transform.localScale = new Vector3(1.1f, 1.5f, 1.1f);
+        var screenPlane = AddPrimitive(screenRoot.transform, PrimitiveType.Plane, "ComparisonPlane", new Vector3(0f, -1f, 0f), null);
+        screenPlane.transform.localScale = new Vector3(.65f, 1f, .65f);
+        PrefabUtility.SaveAsPrefabAsset(screenRoot, PREFABS + "/PF_ScreenOutlineDemo.prefab");
+        UnityEngine.Object.DestroyImmediate(screenRoot);
+
+        // Style mini-labs
+        SaveSinglePrefab("PF_Style_TF2", "Mat_StyleCharacter_TF2");
+        SaveOutlinePrefab("PF_Style_GuiltyGear", "Mat_StyleCharacter_GuiltyGear", "Mat_StyleShell_GuiltyGear");
+
+        var hifiRoot = new GameObject("PF_Style_HiFi");
+        AddPrimitive(hifiRoot.transform, PrimitiveType.Capsule, "ToonCharacter", Vector3.zero, "Mat_StyleCharacter_HiFi");
+        var hifiCube = AddPrimitive(hifiRoot.transform, PrimitiveType.Cube, "ComparisonCube", new Vector3(2.0f, 0f, 0.2f), null);
+        hifiCube.transform.localScale = new Vector3(1.1f, 1.5f, 1.1f);
+        var hifiPlane = AddPrimitive(hifiRoot.transform, PrimitiveType.Plane, "ComparisonPlane", new Vector3(0f, -1f, 0f), null);
+        hifiPlane.transform.localScale = new Vector3(.65f, 1f, .65f);
+        PrefabUtility.SaveAsPrefabAsset(hifiRoot, PREFABS + "/PF_Style_HiFi.prefab");
+        UnityEngine.Object.DestroyImmediate(hifiRoot);
+
+        report.Add("OK Prefabs (core + renderer feature + screen + 3 styles)");
+    }
+
+    static ScriptableRendererData FindRendererDataFinal()
+    {
+        string[] guids = AssetDatabase.FindAssets("t:ScriptableRendererData");
+        if (guids == null || guids.Length == 0)
+            throw new Exception("URP ScriptableRendererData를 찾지 못했습니다.");
+
+        // Prefer the project's Settings folder, then UniversalRendererData.
+        var paths = guids.Select(AssetDatabase.GUIDToAssetPath).ToList();
+        string pick = paths.FirstOrDefault(p => p.IndexOf("/Settings/", StringComparison.OrdinalIgnoreCase) >= 0
+                                             && AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(p)?.GetType().Name.Contains("UniversalRendererData") == true)
+                   ?? paths.FirstOrDefault(p => AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(p)?.GetType().Name.Contains("UniversalRendererData") == true)
+                   ?? paths[0];
+
+        var data = AssetDatabase.LoadAssetAtPath<ScriptableRendererData>(pick);
+        if (data == null)
+            throw new Exception("Renderer Data를 ScriptableRendererData로 읽지 못했습니다: " + pick);
+
+        report.Add("RendererData = " + pick);
+        return data;
+    }
+
+    static ScriptableRendererData InstallRendererFeaturesFinal(int outlineLayer)
+    {
+        ScriptableRendererData data = FindRendererDataFinal();
+
+        IList featureList = GetMember(data, new[]{"rendererFeatures","m_RendererFeatures"}) as IList;
+        if (featureList == null)
+            throw new Exception("Renderer Data의 Renderer Feature 목록을 찾지 못했습니다.");
+
+        // Remove all features created by older DAY08 attempts to prevent duplicate/global interference.
+        string[] oldNames = {
+            "Outline Shell Pass", "Screen Outline",
+            "DAY08 Outline Shell Pass", "DAY08 Screen Outline"
+        };
+
+        for (int i = featureList.Count - 1; i >= 0; i--)
+        {
+            var f = featureList[i] as UnityEngine.Object;
+            if (f == null) continue;
+            if (oldNames.Contains(f.name) || f.name.StartsWith("DAY08 ", StringComparison.Ordinal))
+            {
+                featureList.RemoveAt(i);
+                UnityEngine.Object.DestroyImmediate(f, true);
+            }
+        }
+
+        Material outlineMat = AssetDatabase.LoadAssetAtPath<Material>(MATS + "/Mat_OutlineShell.mat");
+        Material screenMat = AssetDatabase.LoadAssetAtPath<Material>(MATS + "/Mat_ScreenOutline.mat");
+        if (outlineMat == null || screenMat == null)
+            throw new Exception("DAY08 Outline Material을 찾지 못했습니다.");
+
+        // -------- Render Objects: outline shell pass --------
+        Type renderObjectsType = FindType("UnityEngine.Rendering.Universal.RenderObjects") ?? FindTypeBySimpleName("RenderObjects");
+        if (renderObjectsType == null)
+            throw new Exception("URP RenderObjects Renderer Feature 타입을 찾지 못했습니다.");
+
+        var renderObjects = ScriptableObject.CreateInstance(renderObjectsType);
+        renderObjects.name = "DAY08 Outline Shell Pass";
+
+        object settings = GetMember(renderObjects, new[]{"settings","m_Settings"});
+        if (settings == null)
+        {
+            Type st = GetMemberType(renderObjects, new[]{"settings","m_Settings"});
+            if (st != null)
+            {
+                settings = Activator.CreateInstance(st, true);
+                SetMember(renderObjects, new[]{"settings","m_Settings"}, settings);
+            }
+        }
+        if (settings == null)
+            throw new Exception("RenderObjects.settings를 만들지 못했습니다.");
+
+        SetEnumMemberByName(settings, new[]{"Event","event","m_Event"}, "BeforeRenderingOpaques");
+
+        object filter = GetMember(settings, new[]{"filterSettings","m_FilterSettings"});
+        if (filter == null)
+        {
+            Type ft = GetMemberType(settings, new[]{"filterSettings","m_FilterSettings"});
+            if (ft != null)
+            {
+                filter = Activator.CreateInstance(ft, true);
+                SetMember(settings, new[]{"filterSettings","m_FilterSettings"}, filter);
+            }
+        }
+        if (filter == null)
+            throw new Exception("RenderObjects FilterSettings를 만들지 못했습니다.");
+
+        SetEnumMemberByName(filter, new[]{"RenderQueueType","renderQueueType","m_RenderQueueType"}, "Opaque");
+        SetLayerMaskValue(filter, new[]{"LayerMask","layerMask","m_LayerMask"}, 1 << outlineLayer);
+        SetMember(settings, new[]{"overrideMaterial","m_OverrideMaterial"}, outlineMat);
+        SetMember(settings, new[]{"overrideMaterialPassIndex","m_OverrideMaterialPassIndex"}, 0);
+        SetEnumMemberByName(settings, new[]{"overrideMode","m_OverrideMode"}, "Material");
+
+        AssetDatabase.AddObjectToAsset(renderObjects, data);
+        featureList.Add(renderObjects);
+        TryInvoke(renderObjects, new[]{"Create"});
+        TryInvoke(renderObjects, new[]{"SetActive"}, false);
+        EditorUtility.SetDirty(renderObjects);
+
+        // -------- Full Screen Pass: Depth + Normal + Color outline --------
+        Type fullType = FindType("UnityEngine.Rendering.Universal.FullScreenPassRendererFeature")
+                     ?? FindTypeBySimpleName("FullScreenPassRendererFeature");
+        if (fullType == null)
+            throw new Exception("URP FullScreenPassRendererFeature 타입을 찾지 못했습니다.");
+
+        var full = ScriptableObject.CreateInstance(fullType);
+        full.name = "DAY08 Screen Outline";
+
+        SetEnumMemberByName(full, new[]{"injectionPoint","m_InjectionPoint"}, "BeforeRenderingPostProcessing");
+        SetMember(full, new[]{"fetchColorBuffer","m_FetchColorBuffer"}, true);
+        SetMember(full, new[]{"passMaterial","m_PassMaterial"}, screenMat);
+        SetMember(full, new[]{"passIndex","m_PassIndex"}, 0);
+        SetMember(full, new[]{"bindDepthStencilAttachment","m_BindDepthStencilAttachment"}, false);
+        SetEnumFlagsMember(full, new[]{"requirements","m_Requirements"}, new[]{"Color","Normal","Depth"});
+
+        AssetDatabase.AddObjectToAsset(full, data);
+        featureList.Add(full);
+        TryInvoke(full, new[]{"Create"});
+        TryInvoke(full, new[]{"SetActive"}, false);
+        EditorUtility.SetDirty(full);
+
+        // Rebuild the renderer feature map on Unity versions where it is serialized separately.
+        TryInvoke(data, new[]{"ValidateRendererFeatures"});
+        TryInvoke(data, new[]{"SetDirty"});
+        EditorUtility.SetDirty(data);
+        AssetDatabase.SaveAssets();
+
+        report.Add("OK Renderer Feature: DAY08 Outline Shell Pass (inactive by default)");
+        report.Add("OK Renderer Feature: DAY08 Screen Outline (Color+Normal+Depth, inactive by default)");
+        return data;
+    }
+
+    static void SetLayerMaskValue(object o, string[] names, int value)
+    {
+        Type t = GetMemberType(o, names);
+        if (t == null) return;
+
+        if (t == typeof(LayerMask))
+        {
+            LayerMask lm = new LayerMask();
+            lm.value = value;
+            SetMember(o, names, lm);
+            return;
+        }
+
+        SetMember(o, names, value);
+    }
+
+    static void SetEnumFlagsMember(object o, string[] names, string[] flagNames)
+    {
+        Type t = GetMemberType(o, names);
+        if (t == null || !t.IsEnum)
+            throw new Exception("Renderer Feature requirements enum을 찾지 못했습니다.");
+
+        long bits = 0;
+        foreach (string name in flagNames)
+        {
+            object flag = Enum.Parse(t, name, true);
+            bits |= Convert.ToInt64(flag);
+        }
+        SetMember(o, names, Enum.ToObject(t, bits));
+    }
+
+    static void CreateAllLessonScenes(ScriptableRendererData rendererData, int outlineLayer)
+    {
+        CreateLessonScene(SCENES + "/DAY08_01_ToonBand.unity",
+            "DAY08_01_ToonBand", "PF_ToonBand", rendererData, false, false, false, true);
+
+        CreateLessonScene(SCENES + "/DAY08_02_ToonRim.unity",
+            "DAY08_02_ToonRim", "PF_ToonRim", rendererData, false, false, false, true);
+
+        CreateLessonScene(SCENES + "/DAY08_03_OutlineShell.unity",
+            "DAY08_03_OutlineShell", "PF_OutlineDemo", rendererData, false, false, false, true);
+
+        CreateLessonScene(SCENES + "/DAY08_04_RendererFeatureOutline.unity",
+            "DAY08_04_RendererFeatureOutline", "PF_OutlineRendererFeature", rendererData, true, false, false, true);
+
+        CreateLessonScene(SCENES + "/DAY08_05_ScreenOutline.unity",
+            "DAY08_05_ScreenOutline", "PF_ScreenOutlineDemo", rendererData, false, true, false, false);
+
+        CreateLessonScene(SCENES + "/DAY08_06_TF2.unity",
+            "DAY08_06_TF2", "PF_Style_TF2", rendererData, false, false, false, true);
+
+        CreateLessonScene(SCENES + "/DAY08_07_GuiltyGear.unity",
+            "DAY08_07_GuiltyGear", "PF_Style_GuiltyGear", rendererData, false, false, false, true);
+
+        CreateLessonScene(SCENES + "/DAY08_08_HiFi.unity",
+            "DAY08_08_HiFi", "PF_Style_HiFi", rendererData, false, true, false, false);
+
+        // Last stage: shader expressions are already working, then add Color Grading.
+        CreateLessonScene(SCENES + "/DAY08_09_ColorGrading.unity",
+            "DAY08_09_ColorGrading", "PF_Style_HiFi", rendererData, false, true, true, false);
+
+        CreateOverviewScene(rendererData);
+
+        report.Add("OK 10 Scenes (process 01~09 + COMPLETE)");
+    }
+
+    static void CreateLessonScene(string path, string sceneRootName, string prefabName,
+                                  ScriptableRendererData rendererData,
+                                  bool outlineFeature, bool screenFeature, bool addVolume, bool addGround)
+    {
+        Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+        var root = new GameObject(sceneRootName);
+
+        SpawnPrefab("Demo", prefabName, Vector3.zero, root.transform);
+        CreateEnvironment(root.transform, rendererData, outlineFeature, screenFeature, addVolume, addGround,
+                          screenFeature ? new Vector3(.7f, 2.4f, -7.2f) : new Vector3(0f, 2.2f, -6.2f),
+                          screenFeature ? new Vector3(.7f, .25f, 0f) : new Vector3(0f, .55f, 0f));
+
+        EditorSceneManager.SaveScene(scene, path);
+    }
+
+    static void CreateOverviewScene(ScriptableRendererData rendererData)
+    {
+        Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+        var root = new GameObject("DAY08_COMPLETE");
+
+        SpawnPrefab("01_ToonBand", "PF_ToonBand", new Vector3(-6f, 0f, 0f), root.transform);
+        SpawnPrefab("02_ToonRim", "PF_ToonRim", new Vector3(-3f, 0f, 0f), root.transform);
+        SpawnPrefab("03_OutlineShell", "PF_OutlineDemo", new Vector3(0f, 0f, 0f), root.transform);
+        SpawnPrefab("04_TF2", "PF_Style_TF2", new Vector3(3f, 0f, 0f), root.transform);
+        SpawnPrefab("05_GuiltyGear", "PF_Style_GuiltyGear", new Vector3(6f, 0f, 0f), root.transform);
+
+        // Screen-space outline is renderer-global. In the overview it stays OFF so it doesn't
+        // contaminate the other examples. The real Hi-Fi screen pass is in scene 08.
+        SpawnPrefab("06_HiFi_Preview_ScreenFeatureOff", "PF_Style_HiFi", new Vector3(0f, 0f, 4f), root.transform);
+
+        CreateEnvironment(root.transform, rendererData, false, false, true, false,
+                          new Vector3(0f, 4.2f, -13.5f), new Vector3(0f, .3f, 1.5f));
+
+        EditorSceneManager.SaveScene(scene, SCENE_PATH);
+    }
+
+    static void CreateEnvironment(Transform parent, ScriptableRendererData rendererData,
+                                  bool outlineFeature, bool screenFeature, bool addVolume, bool addGround,
+                                  Vector3 cameraPosition, Vector3 lookAt)
+    {
+        if (addGround)
+        {
+            var ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            ground.name = "Ground";
+            ground.transform.SetParent(parent);
+            ground.transform.position = new Vector3(0f, -1f, 0f);
+            ground.transform.localScale = new Vector3(.6f, 1f, .6f);
+        }
+
+        var camGo = new GameObject("Main Camera");
+        camGo.tag = "MainCamera";
+        camGo.transform.SetParent(parent);
+        var cam = camGo.AddComponent<Camera>();
+        cam.fieldOfView = 52f;
+        cam.transform.position = cameraPosition;
+        cam.transform.LookAt(lookAt);
+
+        // URP Camera post-processing on for the final grading scene.
+        Type addCamType = FindType("UnityEngine.Rendering.Universal.UniversalAdditionalCameraData");
+        if (addCamType != null)
+        {
+            var addData = camGo.GetComponent(addCamType) ?? camGo.AddComponent(addCamType);
+            SetMember(addData, new[]{"renderPostProcessing","m_RenderPostProcessing"}, addVolume);
+        }
+
+        var lightGo = new GameObject("Directional Light");
+        lightGo.transform.SetParent(parent);
+        var light = lightGo.AddComponent<Light>();
+        light.type = LightType.Directional;
+        light.intensity = 1.1f;
+        lightGo.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+
+        if (addVolume)
+        {
+            var vol = new GameObject("Global Volume DAY08");
+            vol.transform.SetParent(parent);
+            var volume = vol.AddComponent<Volume>();
+            volume.isGlobal = true;
+            volume.profile = AssetDatabase.LoadAssetAtPath<VolumeProfile>(SETTINGS + "/VP_DAY08_ColorGrading.asset");
+        }
+
+        var state = parent.gameObject.AddComponent<DAY08_RenderFeatureState>();
+        state.rendererData = rendererData;
+        state.outlineShellPass = outlineFeature;
+        state.screenOutline = screenFeature;
+        state.Apply();
+    }
+
     // ---------- generic helpers ----------
     static string FindShaderGraph(string name)
     {
@@ -1264,7 +1803,8 @@ public static class DAY08_FULL_ShaderGraphBuilder
     static Color Hex(string h){Color c=Color.white;ColorUtility.TryParseHtmlString(h,out c);return c;}
     static void SetColor(Material m,string p,Color c){if(m&&m.HasProperty(p))m.SetColor(p,c);}
     static void SetFloat(Material m,string p,float v){if(m&&m.HasProperty(p))m.SetFloat(p,v);}
-    static void EnsureFolders(){foreach(var p in new[]{ROOT,GRAPHS,MATS,PREFABS,SCENES,SETTINGS})EnsureFolder(p);}
+    static void SetVector(Material m,string p,Vector4 v){if(m&&m.HasProperty(p))m.SetVector(p,v);}
+    static void EnsureFolders(){foreach(var p in new[]{ROOT,GRAPHS,MATS,PREFABS,SCENES,SETTINGS,SCRIPTS})EnsureFolder(p);}
     static void EnsureFolder(string path)
     {
         if(AssetDatabase.IsValidFolder(path))return;
