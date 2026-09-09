@@ -1,0 +1,91 @@
+DAY12 - VFX_GpuSpark Graph Checklist
+
+중요
+이 파일은 결과만 확인하는 목록이 아니라 VFX Graph 창에서 실제로 만들어야 하는 수업 과정입니다.
+가짜 Particle System이나 HLSL로 대체하지 않습니다.
+
+[0] Package / Asset
+- Window > Package Manager
+- Visual Effect Graph 설치/사용 가능 확인
+- Assets/DAY12/VFX/VFX_GpuSpark.vfx
+- VFX Graph 창으로 실제 에셋 열기
+
+[1] Context 흐름
+왼쪽 -> 오른쪽
+Spawn
+-> Initialize Particle
+-> Update Particle
+-> Output Particle Quad
+
+Context 연결이 끊기지 않았는지 확인.
+
+[2] Spawn
+- Constant Spawn Rate
+- Rate = 80
+- 비교 실험: 20
+- 비교 실험: 200
+- 최종 기본값: 80
+
+[3] Initialize Particle
+- Set Lifetime Random
+  Min = 0.4
+  Max = 1.2
+
+- Set Position Shape
+  Sphere 또는 Circle
+  DAY12 기본 선택: Sphere
+
+- Set Velocity Random
+  위쪽 또는 바깥 방향으로 퍼지도록 설정
+
+- Set Size Random
+  Min = 0.03
+  Max = 0.12
+
+[4] Update Particle
+- Add Force
+  위로 솟거나 아래로 떨어지는 느낌 확인
+
+- Drag
+  시간이 지나며 속도가 줄어드는지 확인
+
+- Age over Lifetime
+  수명 비율을 색/크기 변화에 활용하는 개념 확인
+
+[5] Output Particle
+- Output 타입 = Quad
+- Color = 주황색 또는 하늘색
+  DAY12 기본 선택: 주황색
+- 밝은 Spark이므로 Additive 계열 Blend Mode 고려
+- Texture는 선택 사항
+  DAY12에서는 필수로 임의 텍스처를 넣지 않음
+
+[6] Scene / Visual Effect
+Hierarchy:
+VFX_GpuSpark_Player
+
+Inspector:
+- Visual Effect Component 존재
+- Visual Effect Asset = VFX_GpuSpark
+- 카메라 앞 / 바닥 위에 위치
+- Play Mode에서 보이는지 확인
+
+[7] 보이지 않을 때
+1. Visual Effect Asset 연결
+2. Spawn Rate != 0
+3. Lifetime != 0
+4. Size != 0
+5. Output Color Alpha != 0
+6. Camera 위치 / Clipping Plane
+7. Bounds
+8. Graph 저장 여부
+9. Console Error
+10. GPU Compute Shader 지원 환경
+
+[8] 용어
+Blackboard = 외부 조절 프로퍼티
+Graph Area = Context / Operator 배치 공간
+Context = Spawn / Initialize / Update / Output 같은 큰 단계
+Block = Context 안의 세부 명령
+Operator = 값을 계산하는 노드
+Visual Effect Component = 씬에서 VFX Graph를 재생하는 컴포넌트
