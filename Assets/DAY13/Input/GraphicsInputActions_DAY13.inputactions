@@ -1,0 +1,94 @@
+{
+    "name": "GraphicsInputActions_DAY13",
+    "maps": [
+        {
+            "name": "Gameplay",
+            "id": "1e96e850-7b90-4761-9051-5ede2cde21c5",
+            "actions": [
+                {
+                    "name": "Point",
+                    "type": "Value",
+                    "id": "ae12b797-96cf-4fa5-945b-e0fb41f1a440",
+                    "expectedControlType": "Vector2",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
+                },
+                {
+                    "name": "Click",
+                    "type": "Button",
+                    "id": "94e16d36-31f1-4c12-8a6f-72857984a24e",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "LowIntensity",
+                    "type": "Button",
+                    "id": "c727ec1a-c11e-4e1d-9fa8-f50a4f3ee890",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "HighIntensity",
+                    "type": "Button",
+                    "id": "9767e451-94ef-492e-bf20-119d2b3aa9cf",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "",
+                    "id": "3dd3a82e-daaf-4305-bb18-858e6fe3081d",
+                    "path": "<Pointer>/position",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Point",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "77e31185-2962-4724-8e29-8c338ec647fb",
+                    "path": "<Mouse>/leftButton",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Click",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "791ef998-a884-49b6-a820-d005075fde66",
+                    "path": "<Keyboard>/1",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "LowIntensity",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "199dc083-4d4b-4890-82a1-f923e940c03c",
+                    "path": "<Keyboard>/2",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "HighIntensity",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                }
+            ]
+        }
+    ],
+    "controlSchemes": []
+}

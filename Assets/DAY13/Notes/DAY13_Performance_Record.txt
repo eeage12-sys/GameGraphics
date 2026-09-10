@@ -1,0 +1,33 @@
+DAY13 성능 비교 기록
+===================
+
+LOW
+SpawnRate: 20
+Lifetime: DAY12 설정값 사용
+Bounds: VFX Graph에서 확인
+관찰: 입자 밀도 낮음 / Alive Particles 감소 예상
+
+DEFAULT
+SpawnRate: 80
+Lifetime: DAY12 설정값 사용
+Bounds: VFX Graph에서 확인
+관찰: DAY12 기본 표현
+
+HIGH
+SpawnRate: 200
+Lifetime: DAY12 설정값 사용
+Bounds: VFX Graph에서 확인
+관찰: 입자 밀도 높음 / Alive Particles 증가 예상
+
+성능 조절 우선순위
+1. 프레임 저하 -> SpawnRate 줄이기
+2. 너무 오래 남음 -> Lifetime 줄이기
+3. 화면 밖에서도 계산 -> Bounds 점검
+4. 너무 밝고 지저분함 -> Output Color / Alpha 점검
+5. 저사양 옵션 -> Quality Toggle로 약화 또는 OFF
+
+디버깅
+- SetFloat가 안 먹음 -> SpawnRate 철자/대소문자 + Exposed 확인
+- 숫자키 입력 안 됨 -> PlayerInput Send Messages / Action 이름 확인
+- 값은 바뀌는데 밀도 그대로 -> SpawnRate가 Constant Spawn Rate 입력에 실제 연결됐는지 확인
+- 갑자기 잘림 -> Bounds 확인
