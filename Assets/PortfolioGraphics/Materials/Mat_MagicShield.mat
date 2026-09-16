@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!114 &-4320107726116497736
+--- !u!114 &-1959575360196293320
 MonoBehaviour:
   m_ObjectHideFlags: 11
   m_CorrespondingSourceObject: {fileID: 0}
@@ -20,8 +20,8 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Mat_Portfolio_MagicTraining
-  m_Shader: {fileID: -6465566751694194690, guid: 3272ca3e4af27cd4680c6f78519eda5f, type: 3}
+  m_Name: Mat_MagicShield
+  m_Shader: {fileID: -6465566751694194690, guid: 9aae8ad503beb4c40ae25800d06a2797, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
